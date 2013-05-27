@@ -1,0 +1,153 @@
+<!doctype html>
+<html>
+<link rel='stylesheet' href='/static/scrollbar.css' type='text/css' media='screen' />
+
+<style> 
+ body, html {
+ 	margin: 0;
+ 	padding: 0;
+ 	font-family: Arial, Helvetica;
+ }
+ textarea { 
+    overflow: auto;
+    margin: 5px; 
+    height:100%;
+    border: none;
+    padding: 2px;
+  }
+
+  .header {
+  	background-color: #333;
+  	height: 25px;
+  	padding: 5px;
+    padding-left: 10px;
+    color: #fff;
+    line-height: 25px;
+  }
+  .bottom {
+  	height: 100px;
+  	text-align: center;
+  	border-top: 1px solid #ccc;
+  }
+
+  .scroll-container {
+  	background: #fff;
+  	color: #333;
+  	padding:5px;
+  	overflow: auto;
+  }
+
+  .text-container {
+  	float: left;
+  }
+  .online-user-container {
+  	width: 180px;
+  	float: right;
+  }
+
+  .text-item {
+  	margin-bottom: 10px;
+  }
+  .boldtext {
+  	font-weight: bolder;
+  }
+
+  .body-contrainer {
+  	width: 100%;
+  }
+  .body-contrainer td{
+  	vertical-align: top;
+  }
+  .user-item {
+  	margin-bottom: 5px;
+  }
+  .user-item img{
+   	position:relative;
+  	top:4px;
+  }
+  .user-item span {
+   	padding-left: 5px;
+  }
+  .user-item .writting-status {
+  	font-size: 10px;
+  	color: #aaa;
+  	position:relative;
+  	top:-2px;
+  }
+</style>
+	<body>
+		<div class="container">
+			<div class="header">
+        #{{.ChannelName}}
+			</div>
+			<table class="body-contrainer" >
+				<tr>
+					<td width="80%">
+						<div class="scroll-container text-container">
+							<div class="text-item admin"> <span class="boldtext">admin</span> : 测试一下测试一下测试一下测试一 </div>
+							<div class="text-item admin"> <span class="boldtext">admin</span> : 测试一下测试一下测试一下测试一下  </div>
+							<div class="text-item admin"> <span class="boldtext">admin</span> : 测试一下测试一下测试一下测试  </div>
+							 
+						</div>
+						 
+
+					</td>
+					<td width="20%">
+						<div class="scroll-container online-user-container online-user">
+							 {{ range $u := .Onlines}}
+               <div class="user-item"><img src="{{$u.pic}}"/><span>{{$u.user}}</span></div>
+							 {{end}}
+						</div>
+					</td>
+				</tr>
+			</table> 
+			<div class="bottom">
+				<textarea autofocus></textarea>
+			</div>
+		</div>
+
+	</body>
+	<script src="http://a.tbcdn.cn/libs/jquery/1.7.1/jquery.js"></script>
+  <script src="/static/underscore-min.js"></script>
+  <script>
+		$(document).ready(function (){
+			function onsize() {
+				$("textarea").width($(window).width() - 14)
+				$(".scroll-container").height($(window).height() - 170)
+			}
+			onsize()
+			$(window).resize(function() {
+				onsize()
+			})
+
+      var userItemTemplate = _.template(' <div class="user-item"><img src="<%=pic%>" width=20 height=20/><span><%=name%></span></div>');
+      
+      var addOnlineUser = function (usr) {
+        $('.online-user').prepend(userItemTemplate({name:usr["user"].split('@')[0], pic:usr["pic"]}))
+      }
+
+      // web socket connection
+      if (window["WebSocket"]) {
+        conn = new WebSocket("ws://{{.Host}}/ws/{{.ChannelName}}");
+
+        conn.onclose = function (evt) {
+          console.log("connection closed")
+        }
+        console.log('here')
+        conn.onmessage = function (evt) {
+          console.log("on message:" + evt.data)
+          var msg = eval('[' + evt.data + ']')[0]
+          
+          if (msg['type'] == 'text') {
+
+          } else if (msg['type'] == 'adduser') {
+            var obj = JSON.parse(msg['content'])
+            console.log(obj)
+            addOnlineUser(obj)
+          }
+        }
+        
+      }
+		})
+	</script>
+</html>
