@@ -125,7 +125,7 @@
 
               // web socket connection
               if (window["WebSocket"]) {
-                conn = new WebSocket("ws://{{.Host}}/ws/{{.ChannelName}}");
+                conn = new WebSocket("ws://{{.Host}}/{{.ChannelName}}/ws");
 
                 conn.onclose = function (evt) {
                   console.log("connection closed")

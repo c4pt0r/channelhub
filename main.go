@@ -90,10 +90,11 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-Type", "text/html; charset=utf-8")
     if logonId, err := ReadCookie("userid", r); err == nil {
         w.Write([]byte(logonId))
+        return
     } else {
-        w.Write([]byte(url))
+        homeTempl.Execute(w, url)
+        return
     }
-
 }
 
 func chatHome(w http.ResponseWriter, r *http.Request) {
@@ -150,9 +151,9 @@ func main() {
     r := mux.NewRouter()
     r.HandleFunc("/", serveHome)
     r.HandleFunc("/oauth2callback", oauth2Handler)
-    r.HandleFunc("/ws/{channel}", serveWs)
-    r.HandleFunc("/c/{channel}", chatHome)
-    r.HandleFunc("/service/onlineusers/{channel}", onlineUsersHandler)
+    r.HandleFunc("/{channel}", chatHome)
+    r.HandleFunc("/{channel}/ws", serveWs)
+    r.HandleFunc("/{channel}/online", onlineUsersHandler)
 
     r.Handle("/favicon.ico", http.FileServer(http.Dir("statics/")))
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/",
