@@ -62,6 +62,14 @@ func (u *User) String() string {
 	return string(j)
 }
 
+func (u *User) Map() map[string]string {
+    m := map[string] string {
+        "user" : u.userid,
+        "pic" : u.pic,
+    }
+    return m
+}
+
 // 从websocket中读出信息，转发到指定channel中，然后广播给其他的人
 func (c *connection) ReadPump(channelName string) {
 	defer func() {
@@ -177,16 +185,19 @@ func (h *hub) Run() {
 		select {
 		case req := <-h.control:
 			if req.cmd == "onlineusers" {
-				users := make([]string, 0)
+				users := make([]map[string]string, 0)
+                usermap := make(map[string]bool)
 				for k, _ := range h.connections {
-					log.Printf("iter users!")
-					users = append(users, k.user.String())
+                    if _, ok := usermap[k.user.userid]; ok {
+                        continue
+                    }
+					users = append(users, k.user.Map())
+                    usermap[k.user.userid] = true
 				}
 				b, _ := json.Marshal(users)
 				req.result <- string(b)
 			}
 		case c := <-h.register:
-			h.connections[c] = true
 			msg := &message{
 				msg_type: "adduser",
 				sender:   "sysadmin",
@@ -194,10 +205,23 @@ func (h *hub) Run() {
 				channel:  c.channel,
 				date:     time.Now(),
 			}
-			h.Broadcast(msg, nil)
+			 // check if the user is now in room 
+            flag := true
+            for k, _ := range(h.connections) {
+                if c.user.userid == k.user.userid {
+                    flag = false
+                    break
+                }
+            }
+            if flag {
+                log.Printf("new user coming: " + c.user.userid)
+			    h.Broadcast(msg, nil)
+            }
+			h.connections[c] = true
 
 		case c := <-h.unregister:
-			msg := &message{
+            u_id := c.user.userid
+            msg := &message{
 				msg_type: "removeuser",
 				sender:   "sysadmin",
 				content:  c.user.String(),
@@ -206,7 +230,19 @@ func (h *hub) Run() {
 			}
 			delete(h.connections, c)
 			close(c.send)
-			h.Broadcast(msg, nil)
+            // check if the user is truly go away
+            flag := true
+            for k, _ := range(h.connections) {
+                // if still in channel, do not broadcast remove message
+                if u_id == k.user.userid {
+                    flag = false
+                    break
+                }
+            }
+            if flag {
+                log.Printf("user going away: " + c.user.userid)
+			    h.Broadcast(msg, nil)
+            }
 		case m := <-h.broadcast:
 			h.Broadcast(m, nil)
 		}
@@ -225,8 +261,8 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	channelName := vars["channel"]
 	// TODO: read user id from cookie
-	if userid, err := readCookie("userid", r); err == nil {
-		userpic, _ := readCookie("userpic", r)
+	if userid, err := ReadCookie("userid", r); err == nil {
+		userpic, _ := ReadCookie("userpic", r)
 		c := &connection{
 			send:    make(chan []byte, 256),
 			ws:      ws,

@@ -19,7 +19,7 @@ var homeTempl = template.Must(template.ParseFiles("templates/index.html"))
 var chatTempl = template.Must(template.ParseFiles("templates/chat.html"))
 
 // run control on channel
-func runCmd(channelName string, cmd string, param string) (result string, err error) {
+func RunCmd(channelName string, cmd string, param string) (result string, err error) {
 	h, _ := GetChannel(channelName)
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
@@ -57,7 +57,7 @@ var hashKey = []byte("1234567890123456")
 var blockKey = []byte("1234567890123456")
 var scookie = securecookie.New(hashKey, blockKey)
 
-func setCookie(k string, v string, w http.ResponseWriter) (err error) {
+func SetCookie(k string, v string, w http.ResponseWriter) (err error) {
 	if encoded, err := scookie.Encode(k, v); err == nil {
 		cookie := &http.Cookie{
 			Name:  k,
@@ -72,7 +72,7 @@ func setCookie(k string, v string, w http.ResponseWriter) (err error) {
 	return err
 }
 
-func readCookie(k string, r *http.Request) (string, error) {
+func ReadCookie(k string, r *http.Request) (string, error) {
 	if cookie, err := r.Cookie(k); err == nil {
 		var value string
 		if err = scookie.Decode(k, cookie.Value, &value); err == nil {
@@ -88,7 +88,7 @@ func readCookie(k string, r *http.Request) (string, error) {
 func serveHome(w http.ResponseWriter, r *http.Request) {
 	url := config.AuthCodeURL("")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if logonId, err := readCookie("userid", r); err == nil {
+	if logonId, err := ReadCookie("userid", r); err == nil {
 		w.Write([]byte(logonId))
 	} else {
 		w.Write([]byte(url))
@@ -99,7 +99,7 @@ func serveHome(w http.ResponseWriter, r *http.Request) {
 func chatHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	if _, err := readCookie("userid", r); err != nil {
+	if _, err := ReadCookie("userid", r); err != nil {
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
@@ -107,20 +107,12 @@ func chatHome(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	channelName := vars["channel"]
 
-	onlineUsers := make([]string, 0)
-	if res, err := runCmd(channelName, "onlineusers", ""); err == nil {
-		json.Unmarshal([]byte(res), &onlineUsers)
-	}
-
-	// TODO: get previous messages
 	data := struct {
 		ChannelName string
 		Host        string
-		Onlines     []string
 	}{
 		channelName,
 		r.Host,
-		onlineUsers,
 	}
 
 	chatTempl.Execute(w, data)
@@ -146,8 +138,8 @@ func oauth2Handler(w http.ResponseWriter, r *http.Request) {
 	userid := m["email"]
 	usericon := m["picture"]
 
-	setCookie("userid", userid, w)
-	setCookie("userpic", usericon, w)
+	SetCookie("userid", userid, w)
+	SetCookie("userpic", usericon, w)
 
 	http.Redirect(w, r, "/", http.StatusFound)
 }
@@ -160,6 +152,8 @@ func main() {
 	r.HandleFunc("/oauth2callback", oauth2Handler)
 	r.HandleFunc("/ws/{channel}", serveWs)
 	r.HandleFunc("/c/{channel}", chatHome)
+    r.HandleFunc("/service/onlineusers/{channel}", onlineUsersHandler)
+
 	r.Handle("/favicon.ico", http.FileServer(http.Dir("statics/")))
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/",
 		http.FileServer(http.Dir("static/"))))
