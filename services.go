@@ -16,3 +16,8 @@ func onlineUsersHandler(w http.ResponseWriter, r * http.Request) {
     http.Error(w,"server error", 500)
     return
 }
+
+func logoutHandler(w http.ResponseWriter, r * http.Request) {
+    SetCookie("userid", "", w)
+    http.Redirect(w, r, "/", http.StatusFound)
+}

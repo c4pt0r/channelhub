@@ -151,9 +151,11 @@ func main() {
     r := mux.NewRouter()
     r.HandleFunc("/", serveHome)
     r.HandleFunc("/oauth2callback", oauth2Handler)
+    r.HandleFunc("/logout", logoutHandler)
     r.HandleFunc("/{channel}", chatHome)
     r.HandleFunc("/{channel}/ws", serveWs)
     r.HandleFunc("/{channel}/online", onlineUsersHandler)
+    //r.HandleFunc("/login", loginHandler)
 
     r.Handle("/favicon.ico", http.FileServer(http.Dir("statics/")))
     r.PathPrefix("/static/").Handler(http.StripPrefix("/static/",
