@@ -142,6 +142,7 @@
                   
                   if (msg['type'] == 'text') {
                     addTextItem(msg)
+                    scrollToBottom()
                   } else if (msg['type'] == 'adduser') {
                     var obj = JSON.parse(msg['content'])
                     addOnlineUser(obj)
@@ -151,11 +152,11 @@
                   }
                 }
                 conn.onopen = function(evt) {
-                    getOnlineUsers(function (data) {
-                        for (var i = 0 ; i < data.length; i++) {
-                            addOnlineUser(data[i])
-                        }
-                    })
+                  getOnlineUsers(function (data) {
+                    for (var i = 0 ; i < data.length; i++) {
+                      addOnlineUser(data[i])
+                    }
+                  })
                 }
               }
 
@@ -168,6 +169,10 @@
               
               for (var i = 0; i < 100; i++) {
                 addTextItem({sender:'c4pt0r', content:'hello'})
+              }
+              var scrollToBottom = function() {
+                 var t = $('.text-container')
+                 t.scrollTop(t[0].scrollHeight)
               }
             })
 	</script>
