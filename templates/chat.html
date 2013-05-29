@@ -49,7 +49,6 @@
   }
 
   .text-item {
-  	margin-bottom: 10px;
   }
   .boldtext {
   	font-weight: bolder;
@@ -78,6 +77,11 @@
   	position:relative;
   	top:-2px;
   }
+  .text-time {
+    font-size: 5px;
+    color: #aaa;
+  	margin-bottom: 10px;
+  }
 </style>
 	<body>
 		<div class="container">
@@ -105,6 +109,14 @@
     <script src="http://a.tbcdn.cn/libs/jquery/1.7.1/jquery.js"></script>
     <script src="/static/underscore-min.js"></script>
     <script>
+      function FormatTimeStamp(ts) {
+        var date = new Date(ts*1000);
+        var hours = date.getHours();
+        var minutes = date.getMinutes();
+        var seconds = date.getSeconds();
+        var formattedTime = date.getFullYear() +'-' + date.getMonth() + '-' + date.getDate() + ' '+ hours + ':' + minutes + ':' + seconds;
+        return formattedTime;
+      }
 	  $(document).ready(function (){
               function onsize() {
                   $("textarea").width($(window).width() - 14)
@@ -116,13 +128,15 @@
               })
 
               var userItemTemplate = _.template(' <div class="user-item" id="<%=name%>"><img src="<%=pic%>" width=20 height=20/><span><%=name%></span></div>');
-              var textItemTemplate = _.template('<div class="text-item admin"> <span class="boldtext"><%=sender%></span> : <%=content%> </div>')
+              var textItemTemplate = _.template('<div class="text-item admin"> <span class="boldtext"><%=sender%></span> : <%=content%> </div><div class="text-time"><%=date%></div>')
 
               var addOnlineUser = function (usr) {
                 $('.online-user').prepend(userItemTemplate({name:usr["user"].split('@')[0], pic:usr["pic"]}))
               }
 
               var addTextItem = function (textObj) {
+                textObj['sender'] = textObj['sender'].split('@')[0]
+                textObj['date'] = FormatTimeStamp(textObj['date'])
                 $('.text-container').append(textItemTemplate(textObj))
               }
 
@@ -141,6 +155,7 @@
                   var msg = eval('[' + evt.data + ']')[0]
                   
                   if (msg['type'] == 'text') {
+                    console.log(msg)
                     addTextItem(msg)
                     scrollToBottom()
                   } else if (msg['type'] == 'adduser') {
@@ -157,20 +172,24 @@
                       addOnlineUser(data[i])
                     }
                   })
+                  $('textarea').keydown(function(e) {
+                    if (e.keyCode ==13) {
+                        var text = $('textarea').val()
+                        $('textarea').val('')
+                        conn.send(JSON.stringify({type:'text', content:text}))
+                    }
+                  })  
                 }
               }
 
-              var getOnlineUsers = function(f){
+              window.getOnlineUsers = function(f){
                     // get online user list
                     $.get('/{{.ChannelName}}/online', function(data) {
                         f(data)
                     })
               }
               
-              for (var i = 0; i < 100; i++) {
-                addTextItem({sender:'c4pt0r', content:'hello'})
-              }
-              var scrollToBottom = function() {
+              window.scrollToBottom = function() {
                  var t = $('.text-container')
                  t.scrollTop(t[0].scrollHeight)
               }

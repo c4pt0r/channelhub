@@ -71,7 +71,7 @@ func (u *User) Map() map[string]string {
 }
 
 // 从websocket中读出信息，转发到指定channel中，然后广播给其他的人
-func (c *connection) ReadPump(channelName string) {
+func (c *connection) ReadPump(channelName string, req *http.Request) {
     defer func() {
         hmap[channelName].unregister <- c
         c.ws.Close()
@@ -94,15 +94,17 @@ func (c *connection) ReadPump(channelName string) {
             }
             m := make(map[string]string)
             if err := json.Unmarshal([]byte(rawmessage), &m); err == nil {
-                msg := &message{
-                    msg_type: m["type"],
-                    sender:   m["sender"],
-                    content:  m["content"],
-                    channel:  c.channel,
-                    date:     time.Now(),
-                }
+                if userid, err := ReadCookie("userid", req); err == nil {
+                    msg := &message{
+                        msg_type: m["type"],
+                        sender:   userid,
+                        content:  m["content"],
+                        channel:  c.channel,
+                        date:     time.Now(),
+                    }
 
-                hmap[channelName].broadcast <- msg
+                    hmap[channelName].broadcast <- msg
+                }
             }
         }
     }
@@ -160,7 +162,7 @@ func (h *hub) Broadcast(msg *message, filter func(c *connection) bool) {
     m["sender"] = msg.sender
     m["content"] = msg.content
     m["channel"] = msg.channel
-    m["date"] = msg.date
+    m["date"] = msg.date.Unix()
 
     data, _ := json.Marshal(m)
     log.Printf(string(data))
@@ -273,7 +275,7 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
         channel.register <- c
         log.Printf("new connect arrival... channel name: " + string(channelName))
         go c.WritePump()
-        c.ReadPump(channelName)
+        c.ReadPump(channelName, r)
     } else {
         http.Redirect(w, r, "/", http.StatusFound)
     }
