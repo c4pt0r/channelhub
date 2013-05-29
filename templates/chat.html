@@ -7,6 +7,7 @@
  	margin: 0;
  	padding: 0;
  	font-family: Arial, Helvetica;
+    overflow:hidden;
  }
  textarea { 
     overflow: auto;
@@ -17,8 +18,9 @@
   }
 
   .header {
-  	background-color: #333;
-  	height: 25px;
+    background-color: #2d2d2d;
+    border-bottom: 1px solid #000;
+    height: 25px;
   	padding: 5px;
     padding-left: 10px;
     color: #fff;
@@ -39,6 +41,7 @@
 
   .text-container {
   	float: left;
+    width:100%;
   }
   .online-user-container {
   	width: 180px;
@@ -57,6 +60,7 @@
   }
   .body-contrainer td{
   	vertical-align: top;
+    padding-right:10px;
   }
   .user-item {
   	margin-bottom: 5px;
@@ -84,13 +88,7 @@
 				<tr>
 					<td width="80%">
 						<div class="scroll-container text-container">
-							<div class="text-item admin"> <span class="boldtext">admin</span> : 测试一下测试一下测试一下测试一 </div>
-							<div class="text-item admin"> <span class="boldtext">admin</span> : 测试一下测试一下测试一下测试一下  </div>
-							<div class="text-item admin"> <span class="boldtext">admin</span> : 测试一下测试一下测试一下测试  </div>
-							 
 						</div>
-						 
-
 					</td>
 					<td width="20%">
 						<div class="scroll-container online-user-container online-user">
@@ -117,10 +115,19 @@
                   onsize()
               })
 
-              var userItemTemplate = _.template(' <div class="user-item"><img src="<%=pic%>" width=20 height=20/><span><%=name%></span></div>');
-      
+              var userItemTemplate = _.template(' <div class="user-item" id="<%=name%>"><img src="<%=pic%>" width=20 height=20/><span><%=name%></span></div>');
+              var textItemTemplate = _.template('<div class="text-item admin"> <span class="boldtext"><%=sender%></span> : <%=content%> </div>')
+
               var addOnlineUser = function (usr) {
                 $('.online-user').prepend(userItemTemplate({name:usr["user"].split('@')[0], pic:usr["pic"]}))
+              }
+
+              var addTextItem = function (textObj) {
+                $('.text-container').append(textItemTemplate(textObj))
+              }
+
+              var removeOnlineUser = function (usr) {
+                $('#' + usr['user'].split('@')[0]).remove()
               }
 
               // web socket connection
@@ -131,18 +138,36 @@
                   console.log("connection closed")
                 }
                 conn.onmessage = function (evt) {
-                  console.log("on message:" + evt.data)
                   var msg = eval('[' + evt.data + ']')[0]
                   
                   if (msg['type'] == 'text') {
-
+                    addTextItem(msg)
                   } else if (msg['type'] == 'adduser') {
                     var obj = JSON.parse(msg['content'])
-                    console.log(obj)
                     addOnlineUser(obj)
+                  } else if (msg['type'] == 'removeuser') {
+                    var obj = JSON.parse(msg['content'])
+                    removeOnlineUser(obj)
                   }
                 }
-                
+                conn.onopen = function(evt) {
+                    getOnlineUsers(function (data) {
+                        for (var i = 0 ; i < data.length; i++) {
+                            addOnlineUser(data[i])
+                        }
+                    })
+                }
+              }
+
+              var getOnlineUsers = function(f){
+                    // get online user list
+                    $.get('/{{.ChannelName}}/online', function(data) {
+                        f(data)
+                    })
+              }
+              
+              for (var i = 0; i < 100; i++) {
+                addTextItem({sender:'c4pt0r', content:'hello'})
               }
             })
 	</script>
