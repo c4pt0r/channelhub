@@ -128,15 +128,15 @@
               })
 
               var userItemTemplate = _.template(' <div class="user-item" id="<%=name%>"><img src="<%=pic%>" width=20 height=20/><span><%=name%></span></div>');
-              var textItemTemplate = _.template('<div class="text-item admin"> <span class="boldtext"><%=sender%></span> : <%=content%> </div><div class="text-time"><%=date%></div>')
+              var textItemTemplate = _.template('<div class="text-item admin"> <span class="boldtext"><%=Sender%></span> : <%=Content%> </div><div class="text-time"><%=Date%></div>')
 
               var addOnlineUser = function (usr) {
                 $('.online-user').prepend(userItemTemplate({name:usr["user"].split('@')[0], pic:usr["pic"]}))
               }
 
               var addTextItem = function (textObj) {
-                textObj['sender'] = textObj['sender'].split('@')[0]
-                textObj['date'] = FormatTimeStamp(textObj['date'])
+                textObj['Sender'] = textObj['Sender'].split('@')[0]
+                textObj['Date'] = FormatTimeStamp(textObj['Date'])
                 $('.text-container').append(textItemTemplate(textObj))
               }
 
@@ -154,15 +154,15 @@
                 conn.onmessage = function (evt) {
                   var msg = eval('[' + evt.data + ']')[0]
                   
-                  if (msg['type'] == 'text') {
+                  if (msg['MsgType'] == 'text') {
                     console.log(msg)
                     addTextItem(msg)
                     scrollToBottom()
-                  } else if (msg['type'] == 'adduser') {
-                    var obj = JSON.parse(msg['content'])
+                  } else if (msg['MsgType'] == 'adduser') {
+                    var obj = JSON.parse(msg['Content'])
                     addOnlineUser(obj)
-                  } else if (msg['type'] == 'removeuser') {
-                    var obj = JSON.parse(msg['content'])
+                  } else if (msg['MsgType'] == 'removeuser') {
+                    var obj = JSON.parse(msg['Content'])
                     removeOnlineUser(obj)
                   }
                 }
@@ -172,11 +172,16 @@
                       addOnlineUser(data[i])
                     }
                   })
+                  getHistoryMsgs(function (msgs) {
+                    for (var i = 0; i < msgs.length; i++) {
+                        addTextItem(msgs[i])
+                    } 
+                  })
                   $('textarea').keydown(function(e) {
                     if (e.keyCode ==13) {
                         var text = $('textarea').val()
                         $('textarea').val('')
-                        conn.send(JSON.stringify({type:'text', content:text}))
+                        conn.send(JSON.stringify({MsgType:'text', Content:text}))
                     }
                   })  
                 }
@@ -188,7 +193,13 @@
                         f(data)
                     })
               }
-              
+            
+              window.getHistoryMsgs = function (f) {
+                  $.get('/{{.ChannelName}}/history', function(data) {
+                      var d = eval('[' +data+ ']')[0]
+                      f(d)
+                  })
+              }
               window.scrollToBottom = function() {
                  var t = $('.text-container')
                  t.scrollTop(t[0].scrollHeight)

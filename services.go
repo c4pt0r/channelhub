@@ -21,3 +21,15 @@ func logoutHandler(w http.ResponseWriter, r * http.Request) {
     SetCookie("userid", "", w)
     http.Redirect(w, r, "/", http.StatusFound)
 }
+
+func historyHandler(w http.ResponseWriter, r * http.Request) {
+    vars := mux.Vars(r)
+    channelName := vars["channel"]
+
+    if res, err := RunCmd(channelName, "history", ""); err == nil {
+        w.Write([]byte(res))
+        return
+    }
+    http.Error(w, "server error", 500)
+    return
+}

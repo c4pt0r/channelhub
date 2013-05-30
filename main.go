@@ -1,6 +1,7 @@
 package main
 
 import (
+    "github.com/msbranco/goconfig"
     "code.google.com/p/goauth2/oauth"
     "encoding/json"
     "errors"
@@ -40,6 +41,7 @@ func RunCmd(channelName string, cmd string, param string) (result string, err er
             return
         }
     }
+    return
 }
 
 var config = &oauth.Config{
@@ -50,6 +52,21 @@ var config = &oauth.Config{
     AuthURL:      "https://accounts.google.com/o/oauth2/auth",
     TokenURL:     "https://accounts.google.com/o/oauth2/token",
     //TokenCache:   oauth.CacheFile(*cachefile),
+}
+
+var mongoServer string
+
+func readConfigFile(section string) {
+    if c, err := goconfig.ReadConfigFile("conf.cfg"); err == nil {
+        clientId, _ := c.GetString(section, "clientid")
+        clientSecret, _ := c.GetString(section, "clientsecret")
+        redirectURL, _ := c.GetString(section, "redirect")
+        mongoServer, _ = c.GetString(section, "mongo")
+
+        config.ClientId = clientId
+        config.ClientSecret = clientSecret
+        config.RedirectURL = redirectURL
+    }
 }
 
 //  secret!
@@ -146,6 +163,8 @@ func oauth2Handler(w http.ResponseWriter, r *http.Request) {
 }
 func main() {
     flag.Parse()
+    readConfigFile("default")
+    log.Printf(config.ClientId)
     log.SetFlags(log.Lshortfile | log.LstdFlags)
 
     r := mux.NewRouter()
@@ -155,6 +174,8 @@ func main() {
     r.HandleFunc("/{channel}", chatHome)
     r.HandleFunc("/{channel}/ws", serveWs)
     r.HandleFunc("/{channel}/online", onlineUsersHandler)
+    r.HandleFunc("/{channel}/history", historyHandler)
+
     //r.HandleFunc("/login", loginHandler)
 
     r.Handle("/favicon.ico", http.FileServer(http.Dir("statics/")))

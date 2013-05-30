@@ -8,6 +8,8 @@ import (
     "log"
     "net/http"
     "time"
+    "labix.org/v2/mgo"
+    "labix.org/v2/mgo/bson"
 )
 
 const (
@@ -35,23 +37,37 @@ type controlRequest struct {
     result chan string
 }
 
-type message struct {
-    msg_type string
-    sender   string
-    channel  string
-    content  string
-    date     time.Time
+type Message struct {
+    MsgType string
+    Sender   string
+    Channel  string
+    Content  string
+    Date     int64
 }
 
 type hub struct {
     connections map[*connection]bool
+    channelName string
     control     chan *controlRequest // for control messages
-    broadcast   chan *message
+    broadcast   chan *Message
     register    chan *connection
     unregister  chan *connection
 }
 
 var hmap = make(map[string]*hub)
+// mongo session
+var mongoSession *mgo.Session
+var mongoCollection *mgo.Collection
+func init() {
+    var err error
+    if mongoSession, err = mgo.Dial(mongoServer); err == nil {
+        mongoSession.SetMode(mgo.Monotonic, true)
+        mongoCollection = mongoSession.DB("channelhub").C("messages")
+    } else {
+        mongoSession = nil
+        mongoCollection = nil
+    }
+}
 
 func (u *User) String() string {
     m := map[string]string{
@@ -95,14 +111,15 @@ func (c *connection) ReadPump(channelName string, req *http.Request) {
             m := make(map[string]string)
             if err := json.Unmarshal([]byte(rawmessage), &m); err == nil {
                 if userid, err := ReadCookie("userid", req); err == nil {
-                    msg := &message{
-                        msg_type: m["type"],
-                        sender:   userid,
-                        content:  m["content"],
-                        channel:  c.channel,
-                        date:     time.Now(),
+                    msg := &Message{
+                        MsgType: m["MsgType"],
+                        Sender:   userid,
+                        Content:  m["Content"],
+                        Channel:  c.channel,
+                        Date:     time.Now().Unix(),
                     }
-
+                    // write to mongo
+                    mongoCollection.Insert(&msg)
                     hmap[channelName].broadcast <- msg
                 }
             }
@@ -144,11 +161,12 @@ func (c *connection) write(opCode int, payload []byte) error {
 func GetChannel(channelName string) (*hub, error) {
     if _, ok := hmap[channelName]; !ok {
         hmap[channelName] = &hub{
-            broadcast:   make(chan *message),
+            broadcast:   make(chan *Message),
             register:    make(chan *connection),
             unregister:  make(chan *connection),
             connections: make(map[*connection]bool),
             control:     make(chan *controlRequest),
+            channelName : channelName,
         }
         log.Printf("new channel: " + channelName + " run!")
         go hmap[channelName].Run()
@@ -156,13 +174,13 @@ func GetChannel(channelName string) (*hub, error) {
     return hmap[channelName], nil
 }
 
-func (h *hub) Broadcast(msg *message, filter func(c *connection) bool) {
+func (h *hub) Broadcast(msg *Message, filter func(c *connection) bool) {
     m := make(map[string]interface{})
-    m["type"] = msg.msg_type
-    m["sender"] = msg.sender
-    m["content"] = msg.content
-    m["channel"] = msg.channel
-    m["date"] = msg.date.Unix()
+    m["MsgType"] = msg.MsgType
+    m["Sender"] = msg.Sender
+    m["Content"] = msg.Content
+    m["Channel"] = msg.Channel
+    m["Date"] = msg.Date
 
     data, _ := json.Marshal(m)
     log.Printf(string(data))
@@ -182,7 +200,6 @@ func (h *hub) Broadcast(msg *message, filter func(c *connection) bool) {
 
 // channel的消息fan-out在这里进行
 func (h *hub) Run() {
-
     for {
         select {
         case req := <-h.control:
@@ -199,13 +216,19 @@ func (h *hub) Run() {
                 b, _ := json.Marshal(users)
                 req.result <- string(b)
             }
+            if req.cmd == "history" {
+                var messages []Message
+                mongoCollection.Find(bson.M{"channel":h.channelName}).All(&messages)
+                b, _ := json.Marshal(messages)
+                req.result <- string(b)
+            }
         case c := <-h.register:
-            msg := &message{
-                msg_type: "adduser",
-                sender:   "sysadmin",
-                content:  c.user.String(),
-                channel:  c.channel,
-                date:     time.Now(),
+            msg := &Message{
+                MsgType: "adduser",
+                Sender:   "sysadmin",
+                Content:  c.user.String(),
+                Channel:  c.channel,
+                Date:     time.Now().Unix(),
             }
              // check if the user is now in room 
             flag := true
@@ -223,12 +246,12 @@ func (h *hub) Run() {
 
         case c := <-h.unregister:
             u_id := c.user.userid
-            msg := &message{
-                msg_type: "removeuser",
-                sender:   "sysadmin",
-                content:  c.user.String(),
-                channel:  c.channel,
-                date:     time.Now(),
+            msg := &Message{
+                MsgType: "removeuser",
+                Sender:   "sysadmin",
+                Content:  c.user.String(),
+                Channel:  c.channel,
+                Date:     time.Now().Unix(),
             }
             delete(h.connections, c)
             close(c.send)
@@ -279,5 +302,4 @@ func serveWs(w http.ResponseWriter, r *http.Request) {
     } else {
         http.Redirect(w, r, "/", http.StatusFound)
     }
-
 }
