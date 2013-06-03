@@ -4,9 +4,9 @@
 
 <style> 
  body, html {
- 	margin: 0;
- 	padding: 0;
- 	font-family: Arial, Helvetica;
+ 	  margin: 0;
+ 	  padding: 0;
+ 	  font-family: Arial, Helvetica;
     overflow:hidden;
  }
  textarea { 
@@ -86,7 +86,7 @@
 	<body>
 		<div class="container">
 			<div class="header">
-                #{{.ChannelName}}
+          #{{.ChannelName}}
 			</div>
 			<table class="body-contrainer" >
 				<tr>
@@ -123,6 +123,7 @@
                   $(".scroll-container").height($(window).height() - 170)
               }
               onsize()
+
               $(window).resize(function() {
                   onsize()
               })
@@ -169,7 +170,7 @@
                 conn.onopen = function(evt) {
                   getOnlineUsers(function (data) {
                     for (var i = 0 ; i < data.length; i++) {
-                      addOnlineUser(data[i])
+                        addOnlineUser(data[i])
                     }
                   })
                   getHistoryMsgs(function (msgs) {
@@ -177,17 +178,30 @@
                         addTextItem(msgs[i])
                     } 
                   })
-                  $('textarea').keydown(function(e) {
-                    if (e.keyCode ==13) {
+                  var keyTimer = null
+                  var isEntering = false
+                  
+                  $('textarea').keyup(function(e) {
+                    clearTimeout(keyTimer)
+                    if (isEntering == false) {
+                      isEntering = true
+                      console.log('start entering...')
+                    }
+                    keyTimer = setTimeout(function() {
+                      isEntering = false
+                      console.log('end entering...')
+                    }, 2000)
+                    if (e.keyCode == 13 && e.shiftKey == false) {
                         var text = $('textarea').val()
+                        text.substr(0, t.length - 1)
                         $('textarea').val('')
                         conn.send(JSON.stringify({MsgType:'text', Content:text}))
                     }
-                  })  
+                  })
                 }
               }
 
-              window.getOnlineUsers = function(f){
+              window.getOnlineUsers = function(f) {
                     // get online user list
                     $.get('/{{.ChannelName}}/online', function(data) {
                         f(data)
