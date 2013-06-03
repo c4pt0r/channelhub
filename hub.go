@@ -120,8 +120,10 @@ func (c *connection) ReadPump(channelName string, req *http.Request) {
 						Channel: c.channel,
 						Date:    time.Now().Unix(),
 					}
-					// write to mongo
-					mongoCollection.Insert(&msg)
+					if msg.MsgType == "text" {
+						// write to mongo
+						mongoCollection.Insert(&msg)
+					}
 					hmap[channelName].broadcast <- msg
 				}
 			}
@@ -231,7 +233,6 @@ func (h *hub) Run() {
 				Channel: c.channel,
 				Date:    time.Now().Unix(),
 			}
-			// check if the user is now in room 
 			flag := true
 			for k, _ := range h.connections {
 				if c.user.userid == k.user.userid {
@@ -244,6 +245,7 @@ func (h *hub) Run() {
 				h.Broadcast(msg, nil)
 			}
 			h.connections[c] = true
+
 		case c := <-h.unregister:
 			u_id := c.user.userid
 			msg := &Message{
@@ -269,7 +271,6 @@ func (h *hub) Run() {
 				h.Broadcast(msg, nil)
 			}
 			if len(h.connections) == 0 {
-
 			}
 		case m := <-h.broadcast:
 			h.Broadcast(m, nil)

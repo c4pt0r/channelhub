@@ -1,7 +1,6 @@
 <!doctype html>
 <html>
 <link rel='stylesheet' href='/static/scrollbar.css' type='text/css' media='screen' />
-
 <style> 
  body, html {
  	  margin: 0;
@@ -15,6 +14,7 @@
     height:100%;
     border: none;
     padding: 2px;
+    width: 100%;
   }
 
   .header {
@@ -82,6 +82,16 @@
     color: #aaa;
   	margin-bottom: 10px;
   }
+
+  input:focus, select:focus, textarea:focus {
+    outline-size: 0px;
+    outline-style: none;
+  }
+
+  .write_status {
+    color: #aaa;
+    font-size: 5px;
+  }
 </style>
 	<body>
 		<div class="container">
@@ -119,7 +129,7 @@
       }
 	  $(document).ready(function (){
               function onsize() {
-                  $("textarea").width($(window).width() - 14)
+                  //$("textarea").width($(window).width() - 14)
                   $(".scroll-container").height($(window).height() - 170)
               }
               onsize()
@@ -128,7 +138,7 @@
                   onsize()
               })
 
-              var userItemTemplate = _.template(' <div class="user-item" id="<%=name%>"><img src="<%=pic%>" width=20 height=20/><span><%=name%></span></div>');
+              var userItemTemplate = _.template(' <div class="user-item" id="<%=name%>"><img src="<%=pic%>" width=20 height=20/><span><%=name%></span><span id="<%=name%>_status" class="write_status"><span></div>');
               var textItemTemplate = _.template('<div class="text-item admin"> <span class="boldtext"><%=Sender%></span> : <%=Content%> </div><div class="text-time"><%=Date%></div>')
 
               var addOnlineUser = function (usr) {
@@ -165,6 +175,14 @@
                   } else if (msg['MsgType'] == 'removeuser') {
                     var obj = JSON.parse(msg['Content'])
                     removeOnlineUser(obj)
+                  } else if (msg['MsgType'] == 'enter_status_change') {
+                    console.log('status_change ' + msg['Content'] + ' ' +msg['Sender'] )
+                    var id = msg['Sender'].split('@')[0] + '_status'
+                    if (msg['Content'] == 'begin') {
+                      $('#' + id).html("writing...")
+                    } else {
+                      $('#' + id).html("")
+                    }
                   }
                 }
                 conn.onopen = function(evt) {
@@ -174,7 +192,7 @@
                     }
                   })
                   getHistoryMsgs(function (msgs) {
-                    for (var i = 0; i < msgs.length; i++) {
+                    for (var i = 0;msgs && i < msgs.length; i++) {
                         addTextItem(msgs[i])
                     } 
                   })
@@ -183,18 +201,20 @@
                   
                   $('textarea').keyup(function(e) {
                     clearTimeout(keyTimer)
-                    if (isEntering == false) {
+                    if (isEntering == false && e.keyCode != 13) {
                       isEntering = true
-                      console.log('start entering...')
+                      conn.send(JSON.stringify({MsgType:'enter_status_change', Content:'begin'}))
                     }
                     keyTimer = setTimeout(function() {
                       isEntering = false
-                      console.log('end entering...')
+                      conn.send(JSON.stringify({MsgType:'enter_status_change', Content:'stop'}))
                     }, 2000)
                     if (e.keyCode == 13 && e.shiftKey == false) {
                         var text = $('textarea').val()
-                        text.substr(0, t.length - 1)
+                        text.substr(0, text.length - 1)
                         $('textarea').val('')
+                        isEntering = false
+                        conn.send(JSON.stringify({MsgType:'enter_status_change', Content:'stop'}))
                         conn.send(JSON.stringify({MsgType:'text', Content:text}))
                     }
                   })
